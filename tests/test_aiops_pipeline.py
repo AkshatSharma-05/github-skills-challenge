@@ -42,6 +42,25 @@ def test_anomalous_record_is_detected():
     assert event["type"] == "ANOMALY"
 
 
+def test_error_log_is_detected_as_anomaly():
+    detector = AnomalyDetector()
+
+    record = {
+        "timestamp": "2026-09-20T10:12:00",
+        "service": "payment-service",
+        "response_time_ms": 200,
+        "cpu_percent": 65,
+        "memory_percent": 58,
+        "log_level": "ERROR",
+        "message": "Database connection timeout"
+    }
+
+    event = detector.detect(record)
+
+    assert event is not None
+    assert "Error log detected" in event["reasons"]
+
+
 def test_producer_publishes_event():
     topic = EventTopic("anomaly-events")
     producer = EventProducer(topic)
@@ -70,3 +89,11 @@ def test_consumer_receives_event():
     messages = consumer.consume()
 
     assert len(messages) == 1
+
+
+def test_pipeline_consumes_published_anomalies():
+    result = run_pipeline("data/service_data.json")
+
+    assert result["records_processed"] == 10
+    assert len(result["anomalies_detected"]) == 2
+    assert len(result["events_consumed"]) == 2
